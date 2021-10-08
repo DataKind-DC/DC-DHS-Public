@@ -15,9 +15,13 @@ library(GGally)
 ##Load Raw Data
 weatherData<-read_sheet("https://docs.google.com/spreadsheets/d/1w8WCWvveYq2HppELyw3jebhPEO9kGZNhj8GBnegZlbM/edit#gid=1585438251")
 #stayData<-read_sheet("https://docs.google.com/spreadsheets/d/1m4zCOrHzPWb_GsaEr9FL30VYUUgUZbRRfWU_sMzaQK8/edit#gid=872071627")
-stayDataGender<-read_sheet("https://docs.google.com/spreadsheets/d/1LfFB4Xcv5Io0Q8SmezZohf0J01qeqT2eyq9zsUdoBVs/edit#gid=257172774")
-  
-stayData<-stayDataGender
+stayDataGender<-read_sheet("https://docs.google.com/spreadsheets/d/1BlIjiFJ3O-QBymJfksXIVxVT2HwuXanBrrRiLk-r_qc/edit#gid=1454096908")
+stayDataNonGender<-read_sheet("https://docs.google.com/spreadsheets/d/1m4zCOrHzPWb_GsaEr9FL30VYUUgUZbRRfWU_sMzaQK8/edit#gid=872071627")
+
+
+
+stayData<-stayDataGender%>%
+  filter(name!="CCNV Shelter - LBS ES IND -Private")
 
   
 unique(stayData$name)
@@ -52,23 +56,57 @@ Dates<-seq(from=as.Date(paste(minYear,"-01-01",sep='')),to=as.Date(paste(maxYear
 
 
 ##Create data for each day, and how many people are in each shelter
-DateCount<-NULL
+DateCountShelter<-NULL
+DateCountGender<-NULL
+DateCountAll<-NULL
 
+
+##By Shelter
 for (i in Dates){
   print(as.Date(as.POSIXct.Date(i)))
   
 temp<-stayData%>%
   mutate(inRange=ifelse(start<=i&end>=i,1,0))%>%
-  group_by(gender)%>%
+  group_by(name)%>% 
   summarize(Total=sum(inRange))%>%
   mutate(date=as.Date(as.POSIXct.Date(i)))
 
-DateCount<-bind_rows(DateCount,temp)
+DateCountShelter<-bind_rows(DateCount,temp)
+}
+
+
+##By Gender
+for (i in Dates){
+  print(as.Date(as.POSIXct.Date(i)))
+  
+  temp<-stayData%>%
+    mutate(inRange=ifelse(start<=i&end>=i,1,0))%>%
+    group_by(gender)%>% 
+    summarize(Total=sum(inRange))%>%
+    mutate(date=as.Date(as.POSIXct.Date(i)))
+  
+  DateCountGender<-bind_rows(DateCount,temp)
+}
+
+
+##By Gender and Shelter
+for (i in Dates){
+  print(as.Date(as.POSIXct.Date(i)))
+  
+  temp<-stayData%>%
+    mutate(inRange=ifelse(start<=i&end>=i,1,0))%>%
+    group_by(gender, name)%>% 
+    summarize(Total=sum(inRange))%>%
+    mutate(date=as.Date(as.POSIXct.Date(i)))
+  
+  DateCountAll<-bind_rows(DateCount,temp)
 }
 
 
 
-TotalDateCount<-DateCount%>%
+
+
+TotalDateCountGender<-DateCountGender%>%
   pivot_wider(names_from = gender,values_from = Total)%>%
   mutate(dayWeek=factor(wday(date)),
          month=factor(month(date)),
@@ -76,21 +114,43 @@ TotalDateCount<-DateCount%>%
          year=factor(year(date)))%>%
   left_join(weatherDataClean)%>%
   mutate(FreezingAtEntry=if_else(MinTempF<=32,1,0))%>%
-  filter(date<="2021-09-02")
+  filter(date<="2021-10-06")
 
 
 
-ggplot(TotalDateCount,aes(x=date,y=Male))+geom_line()
-ggplot(TotalDateCount,aes(x=date,y=Female))+geom_line()
-ggplot(TotalDateCount,aes(x=MinTempF,y=Male))+geom_point()
-ggplot(TotalDateCount,aes(x=dayWeek,group=dayWeek,y=Total))+geom_boxplot()
+TotalDateCountShelter<-DateCountShelter%>%
+  mutate(dayWeek=factor(wday(date)),
+         month=factor(month(date)),
+         day=factor(day(date)),
+         year=factor(year(date)))%>%
+  left_join(weatherDataClean)%>%
+  mutate(FreezingAtEntry=if_else(MinTempF<=32,1,0))%>%
+  filter(date<="2021-10-06")
+
+
+##Exploratory Plots
+ggplot(TotalDateCountGender,aes(x=date,y=(Male+Female+`NA`+Transgender)))+geom_line()
+ggplot(TotalDateCountGender,aes(x=date,y=Male))+geom_line()
+ggplot(TotalDateCountGender,aes(x=date,y=Female))+geom_line()
+ggplot(TotalDateCountGender,aes(x=MinTempF,y=Male))+geom_point()
+ggplot(TotalDateCountGender,aes(x=dayWeek,group=dayWeek,y=Total))+geom_boxplot()
+
+
+
+n_distinct(TotalDateCountShelter$name)
+ggplot(TotalDateCountShelter,aes(x=date,y=Total))+geom_line()+facet_wrap(~name)
+
+
+
 
 ggpairs(TotalDateCount[,c(2,4,9:17)])
 
 
 ##write output data locally to different dir than repo clone
 setwd("C:/Users/rcarder/Documents/dev/DHS")
-write.csv(TotalDateCount,"InShelterPerDayGender.csv",row.names = FALSE)
+write.csv(TotalDateCount,"InShelterPerDayGender-10-16-2021.csv",row.names = FALSE)
+write.csv(TotalDateCountShelter,"InShelterPerDaybyShelter.csv",row.names = FALSE)
+write.csv(TotalDateCountShelterGender,"InShelterPerDaybyShelter.csv",row.names = FALSE)
 
 ##The output of this script has been added to the public datacorps Google Drive folder for modeling by volunteers
 

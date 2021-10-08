@@ -11,7 +11,7 @@ library(rnoaa)
 
 
 ##Key removed; get one for NOAA API to use
-options(noaakey = "")
+options(noaakey = NOAA_KEY)
 
 
 ##WeatherData

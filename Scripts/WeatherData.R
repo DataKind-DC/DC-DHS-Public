@@ -1,7 +1,6 @@
 
 ### DataKindDC Homelessness Project ###
 
-
 library(googlesheets4)
 library(tidyverse)        
 
@@ -11,7 +10,7 @@ library(rnoaa)
 
 
 ##Key removed; get one for NOAA API to use
-options(noaakey = NOAA_KEY)
+options(noaakey = "NOAA_KEY")
 
 
 ##WeatherData

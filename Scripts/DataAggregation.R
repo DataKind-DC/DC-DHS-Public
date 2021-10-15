@@ -2,7 +2,7 @@
 ### DataKindDC Homelessness Project ###
 #install.packages("GGally")
 #install.packages("googlesheets4")
-#install.packages("NbClust")
+#install.packages("RCurl")
 
 
 library(googlesheets4)
@@ -10,13 +10,15 @@ library(rnoaa)
 library(tidyverse)
 library(lubridate)
 library(GGally)
+library(RCurl)
 
 
 ##Load Raw Data
-weatherData<-read_sheet("https://docs.google.com/spreadsheets/d/1w8WCWvveYq2HppELyw3jebhPEO9kGZNhj8GBnegZlbM/edit#gid=1585438251")
+#weatherData<-read_sheet("https://docs.google.com/spreadsheets/d/1w8WCWvveYq2HppELyw3jebhPEO9kGZNhj8GBnegZlbM/edit#gid=1585438251")
 #stayData<-read_sheet("https://docs.google.com/spreadsheets/d/1m4zCOrHzPWb_GsaEr9FL30VYUUgUZbRRfWU_sMzaQK8/edit#gid=872071627")
+weatherData<-read.csv("https://raw.githubusercontent.com/DataKind-DC/DC-DHS-Public/main/external%20data/weatherdata.csv")
 stayDataGender<-read_sheet("https://docs.google.com/spreadsheets/d/1BlIjiFJ3O-QBymJfksXIVxVT2HwuXanBrrRiLk-r_qc/edit#gid=1454096908")
-stayDataNonGender<-read_sheet("https://docs.google.com/spreadsheets/d/1m4zCOrHzPWb_GsaEr9FL30VYUUgUZbRRfWU_sMzaQK8/edit#gid=872071627")
+#stayDataNonGender<-read_sheet("https://docs.google.com/spreadsheets/d/1m4zCOrHzPWb_GsaEr9FL30VYUUgUZbRRfWU_sMzaQK8/edit#gid=872071627")
 
 
 
@@ -71,7 +73,7 @@ temp<-stayData%>%
   summarize(Total=sum(inRange))%>%
   mutate(date=as.Date(as.POSIXct.Date(i)))
 
-DateCountShelter<-bind_rows(DateCount,temp)
+DateCountShelter<-bind_rows(DateCountShelter,temp)
 }
 
 
@@ -85,7 +87,7 @@ for (i in Dates){
     summarize(Total=sum(inRange))%>%
     mutate(date=as.Date(as.POSIXct.Date(i)))
   
-  DateCountGender<-bind_rows(DateCount,temp)
+  DateCountGender<-bind_rows(DateCountGender,temp)
 }
 
 
@@ -99,10 +101,18 @@ for (i in Dates){
     summarize(Total=sum(inRange))%>%
     mutate(date=as.Date(as.POSIXct.Date(i)))
   
-  DateCountAll<-bind_rows(DateCount,temp)
+  DateCountAll<-bind_rows(DateCountAll,temp)
 }
 
 
+TotalDateCountShelter<-DateCountShelter%>%
+  mutate(dayWeek=factor(wday(date)),
+         month=factor(month(date)),
+         day=factor(day(date)),
+         year=factor(year(date)))%>%
+  left_join(weatherDataClean)%>%
+  mutate(FreezingAtEntry=if_else(MinTempF<=32,1,0))%>%
+  filter(date<="2021-10-06")
 
 
 
@@ -117,8 +127,8 @@ TotalDateCountGender<-DateCountGender%>%
   filter(date<="2021-10-06")
 
 
-
-TotalDateCountShelter<-DateCountShelter%>%
+TotalDateCountGenderShelter<-DateCountAll%>%
+  pivot_wider(names_from = gender,values_from = Total)%>%
   mutate(dayWeek=factor(wday(date)),
          month=factor(month(date)),
          day=factor(day(date)),
@@ -126,6 +136,9 @@ TotalDateCountShelter<-DateCountShelter%>%
   left_join(weatherDataClean)%>%
   mutate(FreezingAtEntry=if_else(MinTempF<=32,1,0))%>%
   filter(date<="2021-10-06")
+
+
+
 
 
 ##Exploratory Plots
@@ -148,9 +161,9 @@ ggpairs(TotalDateCount[,c(2,4,9:17)])
 
 ##write output data locally to different dir than repo clone
 setwd("C:/Users/rcarder/Documents/dev/DHS")
-write.csv(TotalDateCount,"InShelterPerDayGender-10-16-2021.csv",row.names = FALSE)
-write.csv(TotalDateCountShelter,"InShelterPerDaybyShelter.csv",row.names = FALSE)
-write.csv(TotalDateCountShelterGender,"InShelterPerDaybyShelter.csv",row.names = FALSE)
+write.csv(TotalDateCountGender,"InShelterPerDay_Gender_10-06-2021.csv",row.names = FALSE)
+write.csv(TotalDateCountShelter,"InShelterPerDay_Shelter_10-06-2021.csv",row.names = FALSE)
+write.csv(TotalDateCountGenderShelter,"InShelterPerDay_Gender_Shelter_10-06-2021.csv",row.names = FALSE)
 
 ##The output of this script has been added to the public datacorps Google Drive folder for modeling by volunteers
 
